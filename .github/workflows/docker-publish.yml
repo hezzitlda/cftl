@@ -27,10 +27,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
-        run: echo "VERSION=${GITHUB_REF##*/v}" >> $GITHUB_ENV
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/hezzitlda/cftl
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=main,enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      - name: Build and push multi-arch Docker image with cache
+      - name: Build and push multi-arch Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -38,6 +45,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=registry,ref=ghcr.io/hezzitlda/cftl:buildcache
           cache-to: type=registry,ref=ghcr.io/hezzitlda/cftl:buildcache,mode=max
-          tags: |
-            ghcr.io/hezzitlda/cftl:${{ env.VERSION }}
-            ghcr.io/hezzitlda/cftl:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
