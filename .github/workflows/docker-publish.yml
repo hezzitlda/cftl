@@ -38,6 +38,5 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/hezzitlda/cftl:buildcache
           cache-to: type=registry,ref=ghcr.io/hezzitlda/cftl:buildcache,mode=max
           tags: |
-            # GitHub Container Registry
             ghcr.io/hezzitlda/cftl:${{ env.VERSION }}
             ghcr.io/hezzitlda/cftl:latest
