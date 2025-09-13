@@ -1,0 +1,44 @@
+services:
+  # CF Zero Trust Third Layer Protection
+  cftl:
+    image: ghcr.io/hezzitlda/cftl:latest
+    container_name: cftl
+    restart: always
+    environment:
+      # Cloudflare Tunnel Token (get from CF Dashboard -> Zero Trust -> Networks -> Tunnels)
+      - TUNNEL_TOKEN=your_tunnel_token_here
+
+      # Service Configuration Format:
+      # hostname:service:port:aud:email1,email2|next_service...
+      #
+      # Examples:
+      # Without third layer (direct proxy): app.example.com:backend:3000::
+      # With AUD validation: app.example.com:backend:3000:your_cf_access_aud:
+      # With AUD + email restriction: app.example.com:backend:3000:your_cf_access_aud:admin@example.com,user@example.com
+      - SERVICES=your-app.example.com:jupyter:8888:your_cf_access_aud_here:admin@example.com,user@example.com
+
+      # Disable verbose logging (optional)
+      - VERBOSE=false
+    networks:
+      - app-network
+    depends_on:
+      - jupyter
+
+  # Example Application: Jupyter Notebook
+  # Replace this with your actual application/service
+  jupyter:
+    image: jupyter/base-notebook:latest
+    container_name: jupyter
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.allow_origin='*'
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - ./notebooks:/home/jovyan/work
+    restart: unless-stopped
+    networks:
+      - app-network
+    # Note: No external ports exposed - access only through CFTL proxy
+
+networks:
+  app-network:
+    external: false

@@ -1,0 +1,27 @@
+services:
+  cftl:
+    build: ../
+    container_name: cftl-test
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - VERBOSE=true
+    networks:
+      - app-network
+    depends_on:
+      - header-test
+
+  header-test:
+    image: python:3.11-slim
+    container_name: header-test
+    volumes:
+      - ./test.py:/test.py
+    command: ["python", "/test.py"]
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    external: false
