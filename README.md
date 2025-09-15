@@ -9,7 +9,7 @@
 
 CFTL provides an extra validation layer on top of Cloudflare Zero Trust, adding application-level security with AUD validation and email-based access control.
 
-[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/users/hezzitlda/packages/container/package/cftl)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/r/hezzit/cftl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 ## 🔐 Three Layers of Security
@@ -379,7 +379,7 @@ docker-compose logs -f cftl
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://raw.githubusercontent.com/hezzitlda/cftl/main/LICENSE) file for details.
 
 ---
 
