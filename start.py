@@ -59,7 +59,7 @@ def main():
     signal.signal(signal.SIGINT, cleanup)
     
     # Basic configuration
-    NGINX_PORT = int(os.environ.get('NGINX_PORT', '8080'))
+    PORT = int(os.environ.get('PORT', '8080'))
     AUTH_PORT = find_free_port()
     os.environ['AUTH_PORT'] = str(AUTH_PORT)
     
@@ -69,7 +69,7 @@ def main():
     if not services:
         print("\n[CFTL] WARNING: No services configured!", flush=True)
         print("[CFTL] Third layer protection is INACTIVE", flush=True)
-        print("[CFTL] Configure SERVICES environment variable to enable", flush=True)
+        print("[CFTL] Configure CONFIGS environment variable to enable", flush=True)
         
         # Create default nginx config
         default_config = """
@@ -78,7 +78,7 @@ server {
     server_name _;
     
     location / {
-        return 200 'CF Zero Trust Third Layer\\nStatus: Not Configured\\n\\nSet SERVICES environment variable to enable third layer protection\\n';
+        return 200 'CF Zero Trust Third Layer\\nStatus: Not Configured\\n\\nSet CONFIGS environment variable to enable third layer protection\\n';
         add_header Content-Type text/plain;
     }
     
@@ -87,14 +87,14 @@ server {
         add_header Content-Type text/plain;
     }
 }
-""" % NGINX_PORT
+""" % PORT
         
         with open('/etc/nginx/sites-enabled/default.conf', 'w') as f:
             f.write(default_config)
     else:
         # Generate nginx configurations
         for i, service in enumerate(services):
-            config = generate_nginx_config(service, NGINX_PORT, AUTH_PORT)
+            config = generate_nginx_config(service, PORT, AUTH_PORT)
             config_file = f'/etc/nginx/sites-enabled/service_{i}_{service.name}.conf'
             with open(config_file, 'w') as f:
                 f.write(config)
@@ -155,7 +155,7 @@ server {
     print("\n" + "=" * 60, flush=True)
     print("[CFTL] All systems operational:", flush=True)
     print(f"  - Third Layer Auth: 127.0.0.1:{AUTH_PORT}", flush=True)
-    print(f"  - Nginx Proxy: 0.0.0.0:{NGINX_PORT}", flush=True)
+    print(f"  - Nginx Proxy: 0.0.0.0:{PORT}", flush=True)
     
     if services:
         print(f"\n[CFTL] Protected Services ({len(services)} total):", flush=True)
