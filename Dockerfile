@@ -28,6 +28,7 @@ COPY service-noauth-template.conf /app/service-noauth-template.conf
 COPY auth.py /app/auth.py
 COPY config.py /app/config.py
 COPY start.py /app/start.py
+COPY offline.py /app/offline.py
 
 RUN chmod +x /app/*.py
 
