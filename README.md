@@ -33,7 +33,7 @@ services:
     environment:
       - TUNNEL_TOKEN=your_tunnel_token_here #     v aud     v comma-separated list of emails
       - CONFIGS=your-app.example.com:my-app:3000:your_aud:your@email.com
-	  	#			^ hostname		  ^ service:port				
+        #			^ hostname		  ^ service:port				
     networks:
       - app-network
     depends_on:
