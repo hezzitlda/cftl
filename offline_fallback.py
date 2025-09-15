@@ -10,32 +10,9 @@ import time
 import glob
 import shutil
 import re
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from threading import Thread
 
 ONLINE_CONFIGS = '/tmp/online_configs'
 OFFLINE_CONFIGS = '/tmp/offline_configs'
-
-class OfflineHandler(BaseHTTPRequestHandler):
-    """Simple fallback HTTP handler"""
-    def do_GET(self):
-        self.send_response(503)
-        self.send_header('Content-Type', 'text/html')
-        self.end_headers()
-        self.wfile.write(b'''
-        <html>
-        <body style="text-align:center; font-family:sans-serif; padding:50px;">
-            <h1>Service Offline</h1>
-            <p>This service is temporarily unavailable</p>
-        </body>
-        </html>
-        ''')
-    
-    def do_POST(self):
-        self.do_GET()
-    
-    def log_message(self, format, *args):
-        pass
 
 def check_service_online(host: str, port: str) -> bool:
     """Check if a service is reachable"""
@@ -53,7 +30,7 @@ def prepare_configs():
     fallback_port = os.environ.get('FALLBACK_PORT')
     services = []
     
-    # Get all service configs (skip default.conf)
+    # Get all service configs (skip default.conf and fallback.conf)
     service_configs = glob.glob('/etc/nginx/sites-enabled/service_*.conf')
     
     for config_file in service_configs:
@@ -144,12 +121,12 @@ def main():
     if not fallback_port:
         print("[OFFLINE] ERROR: FALLBACK_PORT environment variable not set", flush=True)
         return
-    
-    # Start fallback HTTP server in a thread
-    server = HTTPServer(('127.0.0.1', int(fallback_port)), OfflineHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.daemon = True
-    server_thread.start()
+
+    with open('/etc/nginx/sites-enabled/offline_fallback.conf', 'r+', encoding='utf-8') as file:
+        content = file.read().replace('{FALLBACK_PORT}', fallback_port)
+        file.seek(0)
+        file.write(content)
+        file.truncate()
     
     # Prepare configs and get service list
     services = prepare_configs()
