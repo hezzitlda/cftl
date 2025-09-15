@@ -3,7 +3,7 @@
 CF Zero Trust Third Layer - Authentication Server
 """
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from aiohttp import web
 import jwt
 import json
 import os
@@ -30,117 +30,113 @@ def load_auth_configs():
         print(f"[CFTL-AUTH] ERROR loading config: {e}", flush=True)
         AUTH_CONFIGS = {}
 
-class ThirdLayerAuthHandler(BaseHTTPRequestHandler):
-    """HTTP handler"""
+async def handle_auth(request):
+    """Handle authentication request"""
+    service_name = request.headers.get('X-Service-Name', '')
     
-    def do_GET(self):
-        service_name = self.headers.get('X-Service-Name', '')
-        
-        if service_name not in AUTH_CONFIGS:
-            token = self.headers.get('CF-Access-JWT-Assertion')
-            if token:
-                try:
-                    decoded = jwt.decode(token, options={"verify_signature": False})
-                    token_email = decoded.get('email', '')
-                    token_sub = decoded.get('sub', '')
-                    token_country = decoded.get('country', '')
-                    
-                    self.send_response(200)
-                    if token_email:
-                        self.send_header('X-Auth-User-Email', token_email)
-                    if token_sub:
-                        self.send_header('X-Auth-User-ID', token_sub)
-                    if token_country:
-                        self.send_header('X-Auth-User-Country', token_country)
-                    self.send_header('X-Auth-Method', 'cf-access-bypass')
-                    self.end_headers()
-                except:
-                    self.send_response(200)
-                    self.end_headers()
-            else:
-                self.send_response(200)
-                self.end_headers()
-            return
-        
-        config = AUTH_CONFIGS[service_name]
-        token = self.headers.get('CF-Access-JWT-Assertion')
-        
-        if not token:
-            print(f"[CFTL-AUTH] DENIED: No CF Access token for {service_name}", flush=True)
-            self.send_response(401)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Third Layer: CF Access token required')
-            return
-        
-        try:
-            decoded = jwt.decode(token, options={"verify_signature": False})
-            token_aud = decoded.get('aud', [''])[0] if isinstance(decoded.get('aud'), list) else decoded.get('aud')
-            token_email = decoded.get('email', '').lower()
-            token_sub = decoded.get('sub', '')
-            token_country = decoded.get('country', '')
-            token_iss = decoded.get('iss', '')
-            token_type = decoded.get('type', '')
-            token_identity_nonce = decoded.get('identity_nonce', '')
-            
-            if token_aud != config['aud']:
-                print(f"[CFTL-AUTH] DENIED: AUD mismatch for {service_name}", flush=True)
-                self.send_response(401)
-                self.send_header('Content-Type', 'text/plain')
-                self.end_headers()
-                self.wfile.write(b'Third Layer: Invalid AUD')
-                return
-            
-            if config.get('emails') and token_email not in config['emails']:
-                print(f"[CFTL-AUTH] DENIED: Unauthorized email for {service_name}: {token_email}", flush=True)
-                self.send_response(403)
-                self.send_header('Content-Type', 'text/plain')
-                self.end_headers()
-                self.wfile.write(b'Third Layer: Email not authorized')
-                return
-            
-            self.send_response(200)
-            self.send_header('X-Auth-User-Email', token_email)
-            self.send_header('X-Auth-User-ID', token_sub)
-            
-            if token_country:
-                self.send_header('X-Auth-User-Country', token_country)
-            if token_iss:
-                self.send_header('X-Auth-Issuer', token_iss)
-            if token_type:
-                self.send_header('X-Auth-Token-Type', token_type)
-            if token_identity_nonce:
-                self.send_header('X-Auth-Identity-Nonce', token_identity_nonce)
-            
-            self.send_header('X-Auth-Method', 'cf-access-third-layer')
-            self.send_header('X-Auth-Service', service_name)
-            self.send_header('X-Auth-AUD', token_aud)
-            self.end_headers()
-            
-        except jwt.DecodeError as e:
-            print(f"[CFTL-AUTH] DENIED: Invalid JWT for {service_name}: {e}", flush=True)
-            self.send_response(401)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Third Layer: Invalid token format')
-        
-        except Exception as e:
-            print(f"[CFTL-AUTH] ERROR: {e}", flush=True)
-            self.send_response(500)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Third Layer: Internal error')
+    # If no config for this service, check for CF Access token and bypass
+    if service_name not in AUTH_CONFIGS:
+        token = request.headers.get('CF-Access-JWT-Assertion')
+        if token:
+            try:
+                decoded = jwt.decode(token, options={"verify_signature": False})
+                token_email = decoded.get('email', '')
+                token_sub = decoded.get('sub', '')
+                token_country = decoded.get('country', '')
+                
+                headers = {'X-Auth-Method': 'cf-access-bypass'}
+                if token_email:
+                    headers['X-Auth-User-Email'] = token_email
+                if token_sub:
+                    headers['X-Auth-User-ID'] = token_sub
+                if token_country:
+                    headers['X-Auth-User-Country'] = token_country
+                
+                return web.Response(headers=headers)
+            except:
+                return web.Response()
+        else:
+            return web.Response()
     
-    def log_message(self, format, *args):
-        if "401" in str(args) or "403" in str(args) or "500" in str(args):
-            print(f"[CFTL-HTTP] {format%args}", flush=True)
-
-if __name__ == '__main__':
-    load_auth_configs()
-    server = HTTPServer(('127.0.0.1', PORT), ThirdLayerAuthHandler)
+    # Service has config, validate
+    config = AUTH_CONFIGS[service_name]
+    token = request.headers.get('CF-Access-JWT-Assertion')
+    
+    if not token:
+        print(f"[CFTL-AUTH] DENIED: No CF Access token for {service_name}", flush=True)
+        return web.Response(text='Third Layer: CF Access token required', status=401)
     
     try:
-        server.serve_forever()
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        token_aud = decoded.get('aud', [''])[0] if isinstance(decoded.get('aud'), list) else decoded.get('aud')
+        token_email = decoded.get('email', '').lower()
+        token_sub = decoded.get('sub', '')
+        token_country = decoded.get('country', '')
+        token_iss = decoded.get('iss', '')
+        token_type = decoded.get('type', '')
+        token_identity_nonce = decoded.get('identity_nonce', '')
+        
+        # Validate AUD
+        if token_aud != config['aud']:
+            print(f"[CFTL-AUTH] DENIED: AUD mismatch for {service_name}", flush=True)
+            return web.Response(text='Third Layer: Invalid AUD', status=401)
+        
+        # Validate email if configured
+        if config.get('emails') and token_email not in config['emails']:
+            print(f"[CFTL-AUTH] DENIED: Unauthorized email for {service_name}: {token_email}", flush=True)
+            return web.Response(text='Third Layer: Email not authorized', status=403)
+        
+        # Build success response with headers
+        headers = {
+            'X-Auth-User-Email': token_email,
+            'X-Auth-User-ID': token_sub,
+            'X-Auth-Method': 'cf-access-third-layer',
+            'X-Auth-Service': service_name,
+            'X-Auth-AUD': token_aud
+        }
+        
+        if token_country:
+            headers['X-Auth-User-Country'] = token_country
+        if token_iss:
+            headers['X-Auth-Issuer'] = token_iss
+        if token_type:
+            headers['X-Auth-Token-Type'] = token_type
+        if token_identity_nonce:
+            headers['X-Auth-Identity-Nonce'] = token_identity_nonce
+        
+        return web.Response(headers=headers)
+        
+    except jwt.DecodeError as e:
+        print(f"[CFTL-AUTH] DENIED: Invalid JWT for {service_name}: {e}", flush=True)
+        return web.Response(text='Third Layer: Invalid token format', status=401)
+    
+    except Exception as e:
+        print(f"[CFTL-AUTH] ERROR: {e}", flush=True)
+        return web.Response(text='Third Layer: Internal error', status=500)
+
+async def init_app():
+    """Initialize application"""
+    load_auth_configs()
+    
+    app = web.Application()
+    app.router.add_get('/', handle_auth)
+    
+    return app
+
+def main():
+    """Main entry point"""
+    app = init_app()
+    
+    try:
+        web.run_app(
+            app,
+            host='127.0.0.1',
+            port=PORT,
+            print=None,
+            access_log=None
+        )
     except KeyboardInterrupt:
         print(f"\n[CFTL-AUTH] Shutting down...", flush=True)
-        server.shutdown()
+
+if __name__ == '__main__':
+    main()
