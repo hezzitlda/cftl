@@ -119,7 +119,7 @@ async def init_app():
     load_auth_configs()
     
     app = web.Application()
-    app.router.add_get('/', handle_auth)
+    app.router.add_route('*', '/{path:.*}', handle_auth)
     
     return app
 
