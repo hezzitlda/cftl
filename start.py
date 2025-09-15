@@ -107,13 +107,6 @@ server {
         # Save authentication configurations
         save_auth_config(services)
     
-    # Test nginx configuration
-    result = subprocess.run(['nginx', '-t'], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"[CFTL] ERROR: Nginx configuration test failed!", flush=True)
-        print(result.stderr, flush=True)
-        sys.exit(1)
-    
     # Start third layer auth server
     auth_process = subprocess.Popen(
         ['python3', '/app/auth.py'],
@@ -131,6 +124,13 @@ server {
     )
     processes.append(offline_process)
     time.sleep(2)
+
+    # Test nginx configuration
+    result = subprocess.run(['nginx', '-t'], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"[CFTL] ERROR: Nginx configuration test failed!", flush=True)
+        print(result.stderr, flush=True)
+        sys.exit(1)
     
     # Start nginx
     nginx_process = subprocess.Popen(
@@ -169,7 +169,7 @@ server {
     print("\n" + "=" * 60, flush=True)
     print("[CFTL] All systems operational:", flush=True)
     print(f"  - Third Layer Auth: 127.0.0.1:{AUTH_PORT}", flush=True)
-    print(f"  - Fallback Server: 127.0.0.1:{FALLBACK_PORT}", flush=True)
+    print(f"  - Offline Fallback Server: 127.0.0.1:{FALLBACK_PORT}", flush=True)
     print(f"  - Nginx Proxy: 0.0.0.0:{PORT}", flush=True)
     
     if services:
