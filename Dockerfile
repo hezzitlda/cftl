@@ -49,4 +49,7 @@ RUN chown -R nginx:nginx /var/log/nginx \
 
 EXPOSE 8080
 
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+
 CMD ["python3", "/app/start.py"]
