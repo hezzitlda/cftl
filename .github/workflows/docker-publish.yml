@@ -27,7 +27,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: hezzit
           password: ${{ secrets.DOCKER_PASSWORD }}
       
       - name: Extract metadata
@@ -36,7 +36,7 @@ jobs:
         with:
           images: |
             ghcr.io/hezzitlda/cftl
-            docker.io/${{ secrets.DOCKER_USERNAME }}/cftl
+            docker.io/hezzit/cftl
           tags: |
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
