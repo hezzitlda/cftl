@@ -22,6 +22,13 @@ RUN case "$TARGETPLATFORM" in \
 
 RUN pip3 install --break-system-packages pyjwt aiohttp
 
+RUN mkdir -p /var/log/nginx \
+    /var/cache/nginx \
+    /run/nginx \
+    /etc/nginx/sites-enabled \
+    /var/lib/nginx \
+    /var/lib/nginx/tmp
+
 COPY offline_fallback.conf /etc/nginx/sites-enabled/offline_fallback.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY service-template.conf /app/service-template.conf
@@ -32,13 +39,6 @@ COPY start.py /app/start.py
 COPY offline_fallback.py /app/offline_fallback.py
 
 RUN chmod +x /app/*.py
-
-RUN mkdir -p /var/log/nginx \
-    /var/cache/nginx \
-    /run/nginx \
-    /etc/nginx/sites-enabled \
-    /var/lib/nginx \
-    /var/lib/nginx/tmp
 
 RUN adduser -D -H -s /sbin/nologin nginx || true
 
