@@ -27,7 +27,7 @@ CFTL provides an extra validation layer on top of Cloudflare Zero Trust, adding 
 ```yaml
 services:
   cftl:
-    image: ghcr.io/hezzitlda/cftl:latest
+    image: hezzit/cftl:latest
     container_name: cftl
     restart: always
     environment:
