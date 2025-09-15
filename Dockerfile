@@ -20,7 +20,7 @@ RUN case "$TARGETPLATFORM" in \
     wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CLOUDFLARED_ARCH} -O /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared
 
-RUN pip3 install --break-system-packages pyjwt
+RUN pip3 install --break-system-packages pyjwt aiohttp
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY service-template.conf /app/service-template.conf
