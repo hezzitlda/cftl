@@ -62,7 +62,12 @@ def main():
     PORT = int(os.environ.get('PORT', '8080'))
     AUTH_PORT = find_free_port()
     os.environ['AUTH_PORT'] = str(AUTH_PORT)
-    
+
+    FALLBACK_PORT = find_free_port()
+    while FALLBACK_PORT == AUTH_PORT:
+        FALLBACK_PORT = find_free_port()
+    os.environ['FALLBACK_PORT'] = str(FALLBACK_PORT)
+
     # Parse service configurations
     services = parse_services_env()
     
@@ -117,6 +122,15 @@ server {
     )
     processes.append(auth_process)
     time.sleep(2)
+
+    # Start offline/fallback monitor
+    offline_process = subprocess.Popen(
+        ['python3', '/app/offline_fallback.py'],
+        stdout=sys.stdout,
+        stderr=sys.stderr
+    )
+    processes.append(offline_process)
+    time.sleep(2)
     
     # Start nginx
     nginx_process = subprocess.Popen(
@@ -155,6 +169,7 @@ server {
     print("\n" + "=" * 60, flush=True)
     print("[CFTL] All systems operational:", flush=True)
     print(f"  - Third Layer Auth: 127.0.0.1:{AUTH_PORT}", flush=True)
+    print(f"  - Fallback Server: 127.0.0.1:{FALLBACK_PORT}", flush=True)
     print(f"  - Nginx Proxy: 0.0.0.0:{PORT}", flush=True)
     
     if services:
