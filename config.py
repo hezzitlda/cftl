@@ -76,7 +76,9 @@ def parse_services_env() -> List[ServiceConfig]:
                     service_types['0'] = item.strip()
         
         elif key.startswith('CONFIGS'):
-            configs.append(value.strip())
+            for item in value.split('|'):
+                if item.strip():
+                    configs.append(item.strip())
     
     for config_str in configs:
         if not config_str:
