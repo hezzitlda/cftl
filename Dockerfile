@@ -22,7 +22,7 @@ RUN case "$TARGETPLATFORM" in \
 
 RUN pip3 install --break-system-packages pyjwt aiohttp
 
-COPY offline_fallback.conf /etc/nginx/sites-enabled/fallback.conf
+COPY offline_fallback.conf /etc/nginx/sites-enabled/offline_fallback.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY service-template.conf /app/service-template.conf
 COPY service-noauth-template.conf /app/service-noauth-template.conf
