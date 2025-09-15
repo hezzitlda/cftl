@@ -31,17 +31,18 @@ services:
     container_name: cftl
     restart: always
     environment:
-      - TUNNEL_TOKEN=your_tunnel_token_here
-      - SERVICES=your-app.example.com:app:3000:your_cf_access_aud:admin@example.com
+      - TUNNEL_TOKEN=your_tunnel_token_here #     v aud     v comma-separated list of emails
+      - CONFIGS=your-app.example.com:my-app:3000:your_aud:your@email.com
+	  	#			^ hostname		  ^ service:port				
     networks:
       - app-network
     depends_on:
       - app
 
   # Your application
-  app:
+  my-app:
     image: your-app:latest
-    container_name: app
+    container_name: my-app
     networks:
       - app-network
     # No external ports - access only through CFTL
@@ -51,16 +52,139 @@ networks:
     external: false
 ```
 
-### Configuration Format
+## 🎯 Configuration System
+
+CFTL uses a flexible alias-based configuration system that allows you to define reusable components and organize your services in multiple ways.
+
+### Basic Structure
 
 ```bash
-SERVICES=hostname:service:port:aud:emails
+# Define reusable components with aliases
+AUDS=aud_alias:aud_value
+EMAILS=email_alias:email1@domain.com,email2@domain.com
+HOSTNAMES=hostname_alias:hostname.example.com
+SERVICES=service_alias:service_name
 
-# Examples:
-# Without third layer: app.example.com:backend:3000::
-# With AUD only: app.example.com:backend:3000:your_aud:
-# With AUD + emails: app.example.com:backend:3000:your_aud:admin@company.com,user@company.com
-# Multiple services: app1.example.com:svc1:3000:aud1:admin@company.com|app2.example.com:svc2:4000:aud2:
+# Configure services using aliases
+CONFIGS=hostname_alias:service_alias:port:aud_alias:email_alias
+```
+
+### Configuration Examples
+
+#### Simple Configuration (Single Service)
+
+```bash
+# Define components
+AUDS=prod:abc123def456789
+EMAILS=team:admin@company.com,user@company.com
+HOSTNAMES=app:myapp.example.com
+SERVICES=backend:my-backend-service
+
+# Configure the service
+CONFIGS=app:backend:3000:prod:team
+```
+
+#### Multiple Services
+
+```bash
+# Define shared components
+AUDS=prod:abc123def456789
+EMAILS=admin:admin@company.com|dev:dev@company.com
+HOSTNAMES=api:api.example.com|web:web.example.com
+SERVICES=backend:backend-api|frontend:nginx
+
+# Configure each service
+CONFIGS_API=api:backend:3000:prod:admin
+CONFIGS_WEB=web:frontend:80:prod:dev
+```
+
+#### Advanced Organization Patterns
+
+##### Pattern 1: Environment-Based
+
+```bash
+# Development environment
+AUDS_DEV=dev:dev_aud_123
+EMAILS_DEV=devteam:dev1@company.com,dev2@company.com
+HOSTNAMES_DEV=ide:ide.dev.example.com|debug:debug.dev.example.com
+SERVICES_DEV=vscode:code-server
+CONFIGS_DEV_IDE=ide:vscode:8080:dev:devteam
+CONFIGS_DEV_DEBUG=debug:vscode:8081:dev:devteam
+
+# Production environment
+AUDS_PROD=prod:prod_aud_456
+EMAILS_PROD=ops:ops@company.com
+HOSTNAMES_PROD=app:app.example.com|api:api.example.com
+SERVICES_PROD=web:nginx|api:backend
+CONFIGS_PROD_APP=app:web:80:prod:ops
+CONFIGS_PROD_API=api:api:3000:prod:ops
+```
+
+##### Pattern 2: Team-Based
+
+```bash
+# Frontend team resources
+AUDS_FRONTEND=fe:frontend_aud
+EMAILS_FRONTEND=fe_team:frontend@company.com
+HOSTNAMES_FRONTEND=app:app.example.com|preview:preview.example.com
+
+# Backend team resources
+AUDS_BACKEND=be:backend_aud
+EMAILS_BACKEND=be_team:backend@company.com
+HOSTNAMES_BACKEND=api:api.example.com|admin:admin.example.com
+
+# Shared services
+SERVICES=nginx:nginx|node:nodejs|python:python-app
+
+# Service configurations
+CONFIGS_FE_APP=app:nginx:80:fe:fe_team
+CONFIGS_FE_PREVIEW=preview:node:3000:fe:fe_team
+CONFIGS_BE_API=api:python:8000:be:be_team
+CONFIGS_BE_ADMIN=admin:node:4000:be:be_team
+```
+
+##### Pattern 3: Simplified (Using Defaults)
+
+```bash
+# When you don't need aliases, values without ':' use '0' as default alias
+AUDS=abc123def456789
+EMAILS=admin@company.com,user@company.com
+HOSTNAMES=app.example.com
+SERVICES=backend
+
+# Reference using '0' alias
+CONFIGS=0:0:3000:0:0
+```
+
+### Special Cases
+
+#### Service Without Authentication
+
+```bash
+# Empty AUD and emails fields = no third layer protection
+CONFIGS_PUBLIC=public:nginx:80::
+```
+
+#### Only AUD Validation (No Email Restriction)
+
+```bash
+CONFIGS_API=api:backend:3000:prod:
+#                                   ^ no email restriction
+```
+
+#### Mixed Configuration Styles
+
+```bash
+# You can mix all patterns in one deployment
+AUDS=prod:prod_aud|staging:staging_aud
+EMAILS=admin@company.com  # Uses '0' as default alias
+HOSTNAMES_PROD=app:app.example.com
+HOSTNAMES_DEV=dev:dev.example.com
+SERVICES=backend:my-backend|frontend:nginx
+
+# Multiple CONFIGS variations
+CONFIGS=app:backend:3000:prod:0|dev:frontend:80:staging:0  # Using default email alias
+CONFIGS_PUBLIC=public.example.com:nginx:80::  # Direct values without aliases
 ```
 
 ## 📋 Complete Setup Guide
@@ -72,7 +196,6 @@ First, set up your identity provider integration:
 📖 **Guide**: [Identity Provider Integration](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/)
 
 **Popular options:**
-
 - GitHub OAuth
 - Google
 - Azure AD
@@ -85,7 +208,6 @@ Define who can access your applications:
 📖 **Guide**: [Access Policies](https://developers.cloudflare.com/cloudflare-one/policies/access/)
 
 **Example policy:**
-
 - **Policy Name**: "Admin Access"
 - **Rule**: Email contains `admin@yourcompany.com`
 - **Action**: Allow
@@ -97,7 +219,6 @@ Set up your application in Cloudflare Access:
 📖 **Guide**: [Self-Hosted Applications](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-public-app/)
 
 **Configuration:**
-
 1. **Application Name**: Your App Name
 2. **Application Domain**: `your-app.example.com`
 3. **Authentication Method**: Select your configured method (GitHub, Google, etc.)
@@ -111,13 +232,11 @@ Set up secure connection to your application:
 📖 **Guide**: [Create Remote Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/)
 
 **Configuration:**
-
 1. **Tunnel Name**: Your tunnel name
 2. **Public Hostname**: `your-app.example.com` (same as Access app)
 3. **Service**: `http://localhost:8080` (CFTL proxy port)
 
 **⚠️ IMPORTANT - Additional Settings:**
-
 - Navigate to **Access** tab in tunnel configuration
 - **Enable "Validate JWT"**
 - **Select your Access Application** (created in Step 3)
@@ -126,16 +245,33 @@ Set up secure connection to your application:
 
 ### Step 5: Configure CFTL
 
-Create your configuration:
+Choose your configuration style:
 
+#### Option A: Simple Configuration
 ```bash
-# Required
-TUNNEL_TOKEN=your_tunnel_token_from_step_4
-SERVICES=your-app.example.com:your-service:port:your_aud_from_step_3:authorized@emails.com
+CONFIGS=your-app.example.com:your-service:3000:your_aud_from_step_3:authorized@email.com
+```
 
-# Optional
-NGINX_PORT=8080
-VERBOSE=false
+#### Option B: Multi-Service Configuration
+```bash
+TUNNEL_TOKEN=your_tunnel_token
+
+# Define all your AUDs
+AUDS=prod:aud_123|staging:aud_456
+
+# Define email groups
+EMAILS=admin:admin@company.com|dev:dev@company.com,dev2@company.com
+
+# Define all hostnames
+HOSTNAMES=app:app.example.com|api:api.example.com|admin:admin.example.com
+
+# Define service types
+SERVICES=web:nginx|backend:nodejs-api
+
+# Configure each service
+CONFIGS_APP=app:web:80:prod:admin
+CONFIGS_API=api:backend:3000:prod:dev
+CONFIGS_ADMIN=admin:backend:4000:staging:admin
 ```
 
 ### Step 6: Deploy
@@ -146,32 +282,25 @@ docker-compose up -d
 
 ## 🔧 Environment Variables
 
+### Core Variables
+
 | Variable       | Description             | Required | Example                               |
 | -------------- | ----------------------- | -------- | ------------------------------------- |
 | `TUNNEL_TOKEN` | Cloudflare Tunnel token | ✅       | `eyJhbGci...`                         |
-| `SERVICES`     | Service configuration   | ✅       | `app.com:svc:3000:aud:user@email.com` |
-| `NGINX_PORT`   | Nginx listening port    | ❌       | `8080` (default)                      |
+| `PORT`   | CFTL listening port    | ❌       | `8080` (default)                      |
 | `VERBOSE`      | Enable verbose logging  | ❌       | `false` (default)                     |
 
-## 📊 Service Configuration Examples
+### Configuration Variables
 
-### Single Protected Service
+| Variable Pattern | Description | Example |
+|-----------------|-------------|---------|
+| `AUDS*` | AUD definitions | `AUDS=prod:abc123` or `AUDS_DEV=dev:xyz789` |
+| `EMAILS*` | Email group definitions | `EMAILS=admin:admin@company.com` |
+| `HOSTNAMES*` | Hostname definitions | `HOSTNAMES=app:app.example.com` |
+| `SERVICES*` | Service type definitions | `SERVICES=backend:my-backend` |
+| `CONFIGS*` | Service configurations | `CONFIGS_APP=app:backend:3000:prod:admin` |
 
-```bash
-SERVICES=secure.example.com:backend:3000:abc123def456:admin@company.com,user@company.com
-```
-
-### Multiple Services (Mixed Protection)
-
-```bash
-SERVICES=secure.example.com:backend:3000:abc123:admin@company.com|public.example.com:nginx:80::
-```
-
-### Service Without Third Layer (Direct Proxy)
-
-```bash
-SERVICES=public.example.com:static:80::
-```
+*Note: All patterns support multiple definitions (AUDS, AUDS_1, AUDS_PROD, etc.)*
 
 ## 🔍 How It Works
 
@@ -191,7 +320,7 @@ When authentication is successful, your application receives these HTTP headers:
 | `X-Auth-User-ID` | Unique user ID (CF Access sub) | `7335d417-61da-459d-899c-0a01c76a2f94` |
 | `X-Auth-User-Country` | User's authentication country | `US` |
 | `X-Auth-Method` | Authentication method used | `cf-access-third-layer` |
-| `X-Auth-Service` | Service name (internal) | `app_example_com_backend` |
+| `X-Auth-Service` | Service name (internal) | `app_example_com` |
 | `X-Auth-AUD` | Validated CF Access AUD | `abc123def456...` |
 | `X-Auth-Issuer` | CF Access issuer URL | `https://yourteam.cloudflareaccess.com` |
 | `X-Auth-Token-Type` | Token type | `app` |
@@ -219,7 +348,6 @@ app.get('/', (req, res) => {
 
 **Note:** Only services **with third layer protection** receive user headers. Services without third layer (bypass mode) are direct proxied without authentication headers.
 
-
 ## 🛠️ Troubleshooting
 
 ### Check System Status
@@ -230,14 +358,14 @@ docker-compose logs cftl
 
 ### Common Issues
 
-| Issue                                           | Possible Cause                              | Solution                                                         |
-| ----------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
-| `DENIED: No CF Access token`                    | Domain mismatch between Access App and CFTL | Ensure Access Application domain matches CFTL hostname exactly   |
-| `DENIED: AUD mismatch`                          | Wrong AUD in configuration                  | Copy correct AUD from Access Application                         |
-| `DENIED: Unauthorized email`                    | Email not in authorized list                | Add email to SERVICES configuration                              |
-| Nginx error page (white/plain)                  | Issue between CFTL and your app             | Check app connectivity and port configuration                    |
-| Browser error (empty response/connection reset) | Issue between Tunnel and Access App         | Ensure tunnel hostname matches Access Application domain exactly |
-| Tunnel not connecting                           | Invalid tunnel token                        | Generate new token from tunnel settings                          |
+| Issue | Possible Cause | Solution |
+|-------|---------------|----------|
+| `DENIED: No CF Access token` | Domain mismatch between Access App and CFTL | Ensure Access Application domain matches CFTL hostname exactly |
+| `DENIED: AUD mismatch` | Wrong AUD in configuration | Copy correct AUD from Access Application |
+| `DENIED: Unauthorized email` | Email not in authorized list | Add email to EMAILS configuration |
+| Nginx error page (white/plain) | Issue between CFTL and your app | Check app connectivity and port configuration |
+| Browser error (empty response/connection reset) | Issue between Tunnel and Access App | Ensure tunnel hostname matches Access Application domain exactly |
+| Tunnel not connecting | Invalid tunnel token | Generate new token from tunnel settings |
 
 ### Test Individual Layers
 
